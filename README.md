@@ -18,6 +18,8 @@ The Smart Stadium System enhances large-scale sporting venue experiences by:
 - **Optimizing routes** between zones using congestion-aware pathfinding
 - **Predicting queue wait times** at food courts, restrooms, and gates
 - **Simulating live events** with realistic crowd movement patterns
+- **AI-Powered Stadium Assistant** (Gemini) for natural language venue queries
+- **Administrative Control & Security** via RBAC and simulation triggers
 
 Built with a clean layered architecture — Spring Boot backend, React frontend, and Google Cloud integration (Firestore, Pub/Sub, Cloud Run).
 
@@ -31,6 +33,8 @@ flowchart TD
         H[Heatmap]
         RP[Route Planner]
         QT[Queue Times]
+        AI[AI Assistant]
+        ADM[Admin Panel]
     end
 
     subgraph Backend ["Backend (Spring Boot)"]
@@ -38,22 +42,30 @@ flowchart TD
         S[Services]
         ES[Event Simulation]
         R[Repository]
+        SEC[Security/RBAC]
+        AI_S[AI Service]
         
         C --> S
         S --> R
         ES --> S
+        C --> SEC
+        C --> AI_S
     end
 
     subgraph Cloud ["Google Cloud Platform"]
         CR[Cloud Run]
         FS[(Firestore)]
         PS[Pub/Sub]
+        MS[(Memorystore Redis)]
+        VPC[VPC Connector]
     end
 
-    Frontend -- "REST API" --> Backend
+    Frontend -- "REST + WS" --> Backend
     Backend -- "Deployment" --> CR
-    R -- "Data Persistence" --> FS
+    R -- "Persistence" --> FS
     ES -- "Live Updates" --> PS
+    CR -- "Private Bridge" --> VPC
+    VPC -- "Caching" --> MS
 ```
 
 ---
@@ -105,6 +117,8 @@ docker-compose up --build
 | `/api/route?from=A&to=B` | GET | Optimal route between zones |
 | `/api/wait-time` | GET | All zone wait times |
 | `/api/wait-time?zone=X` | GET | Specific zone wait time |
+| `/api/ai/chat` | POST | Chat with AI assistant (Natural language) |
+| `/api/admin/simulation/trigger` | POST | Trigger manual simulation tick (Admin required) |
 | `/actuator/health` | GET | Application health check |
 
 See [API.md](docs/API.md) for full request/response examples.
@@ -118,6 +132,9 @@ See [API.md](docs/API.md) for full request/response examples.
 | **Cloud Run** | Containerized deployment of backend and frontend |
 | **Firestore** | Primary NoSQL database for crowd and queue data |
 | **Pub/Sub** | Event-driven messaging for crowd update simulation |
+| **Vertex AI** | LLM backend for the smart stadium assistant |
+| **Firebase Auth**| Identity and RBAC for admin/staff security |
+| **Cloud Trace** | Distributed request tracing and observability |
 
 See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for setup instructions.
 

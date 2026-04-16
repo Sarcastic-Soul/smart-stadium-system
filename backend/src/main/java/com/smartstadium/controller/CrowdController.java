@@ -6,6 +6,9 @@ import com.smartstadium.service.CrowdService;
 import com.smartstadium.validation.ZoneValidator;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Parameter;
 
 import java.util.List;
 
@@ -17,6 +20,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/crowd-density")
+@Tag(name = "Crowd Density", description = "Real-time crowd density tracking across all stadium zones")
 public class CrowdController {
 
     private final CrowdService crowdService;
@@ -33,6 +37,7 @@ public class CrowdController {
      * @return list of crowd density DTOs
      */
     @GetMapping
+    @Operation(summary = "Get all crowd densities", description = "Returns real-time crowd density data for all stadium zones")
     public ResponseEntity<List<CrowdDensityDto>> getAllDensities() {
         List<CrowdDensityDto> densities = crowdService.getAllDensities();
         return ResponseEntity.ok(densities);
@@ -45,7 +50,10 @@ public class CrowdController {
      * @return the crowd density DTO for the specified zone
      */
     @GetMapping("/{zone}")
-    public ResponseEntity<CrowdDensityDto> getDensity(@PathVariable String zone) {
+    @Operation(summary = "Get crowd density by zone", description = "Returns real-time crowd density data for a specifically requested zone")
+    public ResponseEntity<CrowdDensityDto> getDensity(
+            @Parameter(description = "Zone identifier (e.g., GATE_A, FOOD_COURT_EAST)", example = "GATE_A") 
+            @PathVariable String zone) {
         Zone parsedZone = zoneValidator.parseZone(zone);
         CrowdDensityDto density = crowdService.getDensity(parsedZone);
         return ResponseEntity.ok(density);

@@ -13,8 +13,10 @@ Step-by-step instructions for deploying the Smart Stadium System using Docker an
 5. [Google Cloud Setup](#google-cloud-setup)
 6. [Cloud Run Deployment](#cloud-run-deployment)
 7. [Firestore Setup](#firestore-setup)
-8. [Pub/Sub Setup](#pubsub-setup)
-9. [Verification](#verification)
+8. [Memorystore Redis Setup](#memorystore-redis-setup)
+9. [VPC Access Connector](#vpc-access-connector)
+10. [Pub/Sub Setup](#pubsub-setup)
+11. [Verification](#verification)
 
 ---
 
@@ -36,6 +38,8 @@ The application uses environment variables for all configuration. **No secrets a
 | `GCP_PROJECT_ID` | `promptwars-493516` | Google Cloud project ID |
 | `FRONTEND_URL` | `http://localhost:5173` | Allowed CORS origin |
 | `SPRING_PROFILES_ACTIVE` | *(none)* | Set to `cloud` for GCP integration |
+| `SPRING_REDIS_HOST` | `localhost` | Redis server address |
+| `SPRING_REDIS_PORT` | `6379` | Redis server port |
 | `PUBSUB_ENABLED` | `false` | Enable Pub/Sub messaging |
 | `GOOGLE_APPLICATION_CREDENTIALS` | *(auto on Cloud Run)* | Path to service account key (local only) |
 
@@ -138,7 +142,8 @@ gcloud run deploy smart-stadium-backend \
   --cpu=1 \
   --min-instances=0 \
   --max-instances=3 \
-  --set-env-vars="SPRING_PROFILES_ACTIVE=cloud,GCP_PROJECT_ID=promptwars-493516,PUBSUB_ENABLED=true"
+  --vpc-connector=stadium-connector \
+  --set-env-vars="SPRING_PROFILES_ACTIVE=cloud,GCP_PROJECT_ID=promptwars-493516,PUBSUB_ENABLED=true,SPRING_REDIS_HOST=YOUR_REDIS_IP"
 ```
 
 Note the backend URL from the output (e.g., `https://smart-stadium-backend-xxxxx.run.app`).

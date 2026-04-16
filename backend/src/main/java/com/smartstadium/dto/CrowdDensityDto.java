@@ -22,5 +22,6 @@ public record CrowdDensityDto(
         double occupancyRate,
         DensityLevel densityLevel,
         Instant timestamp
-) {
+) implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
 }

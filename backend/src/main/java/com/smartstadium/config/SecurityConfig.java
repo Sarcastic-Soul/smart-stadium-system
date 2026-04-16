@@ -1,43 +1,61 @@
 package com.smartstadium.config;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 /**
  * Security configuration providing request validation and response hardening.
- *
- * <p>Adds security headers to all responses and provides a basic
- * request validation filter to protect against common attacks.</p>
  */
 @Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
+    @Value("${smartstadium.security.mock:true}")
+    private boolean useMockSecurity;
+
+    @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}")
+    private String issuerUri;
+
     @Bean
-    public OncePerRequestFilter securityHeadersFilter() {
-        return new OncePerRequestFilter() {
-            @Override
-            protected void doFilterInternal(HttpServletRequest request,
-                                            HttpServletResponse response,
-                                            FilterChain filterChain)
-                    throws ServletException, IOException {
+    public SecurityFilterChain filterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
+        http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
+            .csrf(csrf -> csrf.disable()) // Disable CSRF for stateless REST APIs
+            .headers(headers -> headers
+                .xssProtection(xss -> xss.headerValue(org.springframework.security.web.header.writers.XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
+                .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"))
+            )
+            .authorizeHttpRequests(authorize -> {
+                if (useMockSecurity) {
+                    authorize.anyRequest().permitAll(); // Allow all if mock is enabled
+                } else {
+                    authorize
+                        .requestMatchers("/api/admin/**").authenticated()
+                        .anyRequest().permitAll();
+                }
+            });
 
-                // Security headers
-                response.setHeader("X-Content-Type-Options", "nosniff");
-                response.setHeader("X-Frame-Options", "DENY");
-                response.setHeader("X-XSS-Protection", "1; mode=block");
-                response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-                response.setHeader("Content-Security-Policy",
-                        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com");
+        if (!useMockSecurity) {
+            http.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder())));
+        }
 
-                filterChain.doFilter(request, response);
-            }
-        };
+        return http.build();
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        if (useMockSecurity || issuerUri == null || issuerUri.isEmpty()) {
+            return token -> null;
+        }
+        return NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
     }
 }

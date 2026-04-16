@@ -108,6 +108,7 @@ Client → GET /api/wait-time?zone=FOOD_COURT_EAST
       → QueueService.updateQueueData()
         → CacheEvict("queueWaitTime")
         → StadiumRepository.saveQueueData()
+    → Send WebSocket Notification: "REFRESH" to /topic/telemetry
 ```
 
 ---
@@ -167,8 +168,8 @@ graph LR
 | `queueWaitTime` | 30s | On data update | Reduces DB reads for wait time queries |
 
 - Cache is **automatically evicted** when the simulation service updates data
-- Uses **Caffeine** (in-process) — suitable for single-instance deployment
-- For multi-instance deployments, upgrade to **Redis** or rely on Firestore's low-latency reads
+- Uses **Redis** (distributed) — required for multi-instance Cloud Run deployments
+- Configured with a default TTL of 30 seconds
 
 ---
 

@@ -33,7 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubAutoConfiguration.class,
     com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubReactiveAutoConfiguration.class,
     com.google.cloud.spring.autoconfigure.core.GcpContextAutoConfiguration.class,
-    com.google.cloud.spring.autoconfigure.storage.GcpStorageAutoConfiguration.class
+    com.google.cloud.spring.autoconfigure.storage.GcpStorageAutoConfiguration.class,
+    org.springframework.boot.actuate.autoconfigure.tracing.MicrometerTracingAutoConfiguration.class,
+    org.springframework.boot.actuate.autoconfigure.observation.ObservationAutoConfiguration.class
 })
 class CrowdControllerIntegrationTest {
 

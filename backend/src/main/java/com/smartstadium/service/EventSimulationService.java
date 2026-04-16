@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import jakarta.annotation.PostConstruct;
 import java.util.EnumMap;
@@ -29,6 +30,7 @@ public class EventSimulationService {
 
     private final CrowdService crowdService;
     private final QueueService queueService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /** Tracks the simulated crowd count per zone for bounded random walks. */
     private final Map<Zone, Integer> simulatedCrowdCounts = new EnumMap<>(Zone.class);
@@ -36,9 +38,10 @@ public class EventSimulationService {
     /** Tracks the simulated queue length per zone. */
     private final Map<Zone, Integer> simulatedQueueLengths = new EnumMap<>(Zone.class);
 
-    public EventSimulationService(CrowdService crowdService, QueueService queueService) {
+    public EventSimulationService(CrowdService crowdService, QueueService queueService, SimpMessagingTemplate messagingTemplate) {
         this.crowdService = crowdService;
         this.queueService = queueService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /**
@@ -74,6 +77,9 @@ public class EventSimulationService {
             updateCrowdForZone(zone);
             updateQueueForZone(zone);
         }
+        
+        // Broadcast an update event map to WebSocket clients telling them to refresh data
+        messagingTemplate.convertAndSend("/topic/telemetry", "REFRESH");
     }
 
     /**

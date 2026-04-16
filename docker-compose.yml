@@ -11,6 +11,8 @@ services:
       - GCP_PROJECT_ID=promptwars-493516
       - FRONTEND_URL=http://localhost:3000
       - PUBSUB_ENABLED=false
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
       # For cloud deployment, set:
       # - SPRING_PROFILES_ACTIVE=cloud
       # - GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
@@ -20,6 +22,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: stadium-redis
+    ports:
+      - "6379:6379"
 
   frontend:
     build: ./frontend

@@ -10,10 +10,20 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/ws': {
+        target: 'http://localhost:8080',
+        ws: true,
+      },
     },
   },
   build: {
     outDir: 'dist',
     sourcemap: false,
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/setupTests.js',
+    css: true,
   },
 });
