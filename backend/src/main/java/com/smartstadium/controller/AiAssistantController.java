@@ -14,6 +14,12 @@ import com.smartstadium.model.CrowdData;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Comparator;
+import java.util.stream.Collectors;
+
+import com.google.cloud.vertexai.VertexAI;
+import com.google.cloud.vertexai.api.GenerateContentResponse;
+import com.google.cloud.vertexai.generativeai.GenerativeModel;
+import com.google.cloud.vertexai.generativeai.ResponseHandler;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -25,6 +31,12 @@ public class AiAssistantController {
 
     @Value("${smartstadium.vertexai.mock:true}")
     private boolean useMockResponse;
+
+    @Value("${GCP_PROJECT_ID:promptwars-493516}")
+    private String projectId;
+
+    @Value("${GCP_LOCATION:us-central1}")
+    private String location;
 
     private final CrowdService crowdService;
 
@@ -43,15 +55,41 @@ public class AiAssistantController {
         if (useMockResponse) {
             responseMessage = generateMockResponse(message);
         } else {
-            // TODO: In a real environment with credentials, this would call Vertex AI Models
-            // For example: vertexAiTemplate.generate(message);
-            responseMessage = "[Vertex AI Live]: " + generateMockResponse(message);
+            responseMessage = callVertexAI(message);
         }
 
         return ResponseEntity.ok(Map.of(
                 "response", responseMessage,
                 "role", "assistant"
         ));
+    }
+
+    private String callVertexAI(String userMessage) {
+        try (VertexAI vertexAI = new VertexAI(projectId, location)) {
+            GenerativeModel model = new GenerativeModel("gemini-1.5-flash", vertexAI);
+
+            // Context Injection: Give the AI the current live data
+            String stadiumContext = crowdService.getAllDensities().stream()
+                    .map(d -> String.format("- %s: %d/%d people", d.displayName(), d.currentCount(), d.capacity()))
+                    .collect(Collectors.joining("\n"));
+
+            String prompt = String.format("""
+                You are the Smart Stadium AI Assistant. 
+                Here is the current live state of the stadium:
+                %s
+                
+                A fan is asking: "%s"
+                
+                Provide a helpful, friendly, and concise response based purely on the data above. 
+                Suggest the best places to go to avoid crowds.
+                """, stadiumContext, userMessage);
+
+            GenerateContentResponse response = model.generateContent(prompt);
+            return ResponseHandler.getText(response);
+        } catch (Exception e) {
+            logger.error("Error calling Vertex AI: ", e);
+            return "I'm having trouble reaching my AI brain right now, but according to my backup sensors, you should check the North Concourse for lower crowds!";
+        }
     }
 
     private String generateMockResponse(String message) {

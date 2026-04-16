@@ -8,7 +8,7 @@ import com.smartstadium.model.QueueData;
 import com.smartstadium.model.Zone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -20,11 +20,11 @@ import java.util.concurrent.ExecutionException;
 /**
  * Firestore-backed implementation of {@link StadiumRepository}.
  *
- * <p>Active only under the {@code cloud} profile. Stores crowd and queue
- * data in Firestore collections for persistence across restarts.</p>
+ * <p>Active when smartstadium.repository.type is set to 'firestore'.
+ * Stores crowd and queue data in Firestore collections.</p>
  */
 @Repository
-@Profile("cloud")
+@ConditionalOnProperty(name = "smartstadium.repository.type", havingValue = "firestore")
 public class FirestoreStadiumRepository implements StadiumRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(FirestoreStadiumRepository.class);

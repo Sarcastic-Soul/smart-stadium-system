@@ -5,7 +5,7 @@ import com.smartstadium.model.QueueData;
 import com.smartstadium.model.Zone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 import java.util.Map;
@@ -15,11 +15,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * In-memory implementation of {@link StadiumRepository} for local development.
  *
- * <p>Uses {@link ConcurrentHashMap} for thread-safe access. Active when
- * the {@code cloud} profile is NOT active (i.e., local development).</p>
+ * <p>Uses {@link ConcurrentHashMap} for thread-safe access. Active by default
+ * or when smartstadium.repository.type is set to 'in-memory'.</p>
  */
 @Repository
-@Profile("!cloud")
+@ConditionalOnProperty(name = "smartstadium.repository.type", havingValue = "in-memory", matchIfMissing = true)
 public class InMemoryStadiumRepository implements StadiumRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(InMemoryStadiumRepository.class);
