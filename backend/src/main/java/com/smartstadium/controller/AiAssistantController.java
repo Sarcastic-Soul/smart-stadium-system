@@ -66,7 +66,7 @@ public class AiAssistantController {
 
     private String callVertexAI(String userMessage) {
         try (VertexAI vertexAI = new VertexAI(projectId, location)) {
-            GenerativeModel model = new GenerativeModel("gemini-1.5-flash", vertexAI);
+            GenerativeModel model = new GenerativeModel("gemini-2.5-flash", vertexAI);
 
             // Context Injection: Give the AI the current live data
             String stadiumContext = crowdService.getAllDensities().stream()

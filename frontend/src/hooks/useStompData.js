@@ -39,7 +39,7 @@ export function useStompData(fetchFn) {
 
     // WebSocket setup - point to the /ws proxy endpoint
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/websocket`;
 
     const client = new Client({
       brokerURL: wsUrl,
@@ -50,6 +50,18 @@ export function useStompData(fetchFn) {
         client.subscribe('/topic/telemetry', (message) => {
           if (message.body === 'REFRESH') {
             execute();
+          } else {
+            try {
+              const payload = JSON.parse(message.body);
+              setData(payload);
+              setLastUpdated(new Date());
+              setLoading(false);
+              setError(null);
+              console.debug('Telemetry push received', payload);
+            } catch (e) {
+              console.error('Failed to parse telemetry payload', e);
+              execute(); // Fallback to polling if parsing fails
+            }
           }
         });
       },

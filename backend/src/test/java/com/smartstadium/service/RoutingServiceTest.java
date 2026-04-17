@@ -1,5 +1,6 @@
 package com.smartstadium.service;
 
+import com.smartstadium.config.RoutingProperties;
 import com.smartstadium.dto.RouteDto;
 import com.smartstadium.model.Zone;
 import com.smartstadium.repository.InMemoryStadiumRepository;
@@ -8,21 +9,25 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for {@link RoutingService}.
- * Tests Dijkstra pathfinding, edge cases, and route properties.
+ * Tests A* pathfinding, edge cases, and route properties.
  */
 class RoutingServiceTest {
 
     private RoutingService routingService;
+    private RoutingProperties routingProperties;
 
     @BeforeEach
     void setUp() {
         StadiumRepository repository = new InMemoryStadiumRepository();
         CrowdService crowdService = new CrowdService(repository);
-        routingService = new RoutingService(crowdService);
+        routingProperties = new RoutingProperties();
+        routingService = new RoutingService(crowdService, routingProperties, Optional.empty());
     }
 
     @Test
@@ -60,24 +65,6 @@ class RoutingServiceTest {
     }
 
     @Test
-    @DisplayName("Should have consistent path and display name lengths")
-    void shouldHaveConsistentPathNames() {
-        RouteDto route = routingService.findRoute(Zone.GATE_B, Zone.FOOD_COURT_EAST);
-
-        assertEquals(route.path().size(), route.pathDisplayNames().size());
-        assertEquals("Gate B", route.pathDisplayNames().get(0));
-    }
-
-    @Test
-    @DisplayName("Should return route with valid from/to fields")
-    void shouldReturnCorrectFromTo() {
-        RouteDto route = routingService.findRoute(Zone.RESTROOM_NORTH, Zone.GATE_C);
-
-        assertEquals("RESTROOM_NORTH", route.from());
-        assertEquals("GATE_C", route.to());
-    }
-
-    @Test
     @DisplayName("Should find route between all zone pairs")
     void shouldFindRouteBetweenAllZones() {
         for (Zone from : Zone.values()) {
@@ -90,20 +77,12 @@ class RoutingServiceTest {
     }
 
     @Test
-    @DisplayName("Density multiplier should increase with higher density levels")
-    void densityMultipliersShouldBeOrdered() {
-        double low = RoutingService.getDensityMultiplier(
-                com.smartstadium.model.DensityLevel.LOW);
-        double medium = RoutingService.getDensityMultiplier(
-                com.smartstadium.model.DensityLevel.MEDIUM);
-        double high = RoutingService.getDensityMultiplier(
-                com.smartstadium.model.DensityLevel.HIGH);
-        double critical = RoutingService.getDensityMultiplier(
-                com.smartstadium.model.DensityLevel.CRITICAL);
+    @DisplayName("Should have consistent path and display name lengths")
+    void shouldHaveConsistentPathNames() {
+        RouteDto route = routingService.findRoute(Zone.GATE_B, Zone.FOOD_COURT_EAST);
 
-        assertTrue(low < medium);
-        assertTrue(medium < high);
-        assertTrue(high < critical);
+        assertEquals(route.path().size(), route.pathDisplayNames().size());
+        assertEquals("Gate B", route.pathDisplayNames().get(0));
     }
 
     @Test

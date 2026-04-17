@@ -48,7 +48,7 @@ export default function ZoneCard({ zone }) {
         <div
           className="density-bar-fill"
           data-level={densityLevel}
-          style={{ width: `${fillPercent}%` }}
+          style={{ '--fill-percent': `${fillPercent}%` }}
         />
       </div>
     </article>

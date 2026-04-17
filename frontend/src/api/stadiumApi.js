@@ -55,3 +55,10 @@ export function fetchRoute(from, to) {
 export function fetchWaitTimes() {
   return fetchApi('/wait-time');
 }
+/**
+ * Fetches the complete stadium telemetry state in one call.
+ * @returns {Promise<object>} Bundled crowd and queue data
+ */
+export function fetchTelemetry() {
+  return fetchApi('/telemetry');
+}

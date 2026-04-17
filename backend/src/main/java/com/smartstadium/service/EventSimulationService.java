@@ -78,8 +78,12 @@ public class EventSimulationService {
             updateQueueForZone(zone);
         }
         
-        // Broadcast an update event map to WebSocket clients telling them to refresh data
-        messagingTemplate.convertAndSend("/topic/telemetry", "REFRESH");
+        // Broadcast the full updated state to WebSocket clients
+        com.smartstadium.dto.TelemetryData payload = new com.smartstadium.dto.TelemetryData(
+                crowdService.getAllDensities(),
+                queueService.getAllWaitTimes()
+        );
+        messagingTemplate.convertAndSend("/topic/telemetry", payload);
     }
 
     /**

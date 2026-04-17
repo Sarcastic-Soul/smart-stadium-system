@@ -1,5 +1,6 @@
 package com.smartstadium.service;
 
+import com.smartstadium.config.RoutingProperties;
 import com.smartstadium.dto.RouteDto;
 import com.smartstadium.model.CrowdData;
 import com.smartstadium.model.DensityLevel;
@@ -12,37 +13,35 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 
 /**
- * Service for calculating optimal routes between stadium zones.
+ * Service for calculating optimal routes between stadium zones using A* algorithm.
  *
- * <p>Uses Dijkstra's algorithm on a weighted graph where edge weights
- * are adjusted by the crowd density of destination zones. This naturally
- * routes people away from congested areas.</p>
+ * <p>Uses A* pathfinding on a weighted graph where edge weights are adjusted by
+ * the crowd density of destination zones. A heuristic function (Euclidean distance)
+ * is used to prioritize paths heading towards the target destination.</p>
  */
 @Service
 public class RoutingService {
 
     private static final Logger logger = LoggerFactory.getLogger(RoutingService.class);
 
-    /**
-     * Average walking speed in meters per second (approx 1.2 m/s for crowded venues).
-     */
-    private static final double WALKING_SPEED_MPS = 1.2;
-
     private final Map<Zone, List<Edge>> graph;
     private final CrowdService crowdService;
+    private final RoutingProperties routingProperties;
+    private final Optional<RemoteConfigService> remoteConfigService;
 
-    public RoutingService(CrowdService crowdService) {
+    public RoutingService(CrowdService crowdService, 
+                          RoutingProperties routingProperties,
+                          Optional<RemoteConfigService> remoteConfigService) {
         this.crowdService = crowdService;
+        this.routingProperties = routingProperties;
+        this.remoteConfigService = remoteConfigService;
         this.graph = StadiumGraphBuilder.buildGraph();
-        logger.info("Routing service initialized with {} zones", graph.size());
+        logger.info("A* Routing service initialized. Base walking speed: {} m/s", 
+                routingProperties.getWalkingSpeed());
     }
 
     /**
-     * Finds the optimal route between two zones using Dijkstra's algorithm.
-     *
-     * <p>Edge weights are dynamically adjusted based on crowd density at
-     * the destination zone. High-density zones incur a penalty, making
-     * the algorithm prefer less congested paths.</p>
+     * Finds the optimal route between two zones using the A* algorithm.
      *
      * @param from the starting zone
      * @param to   the destination zone
@@ -50,7 +49,7 @@ public class RoutingService {
      * @throws IllegalArgumentException if no route exists between the zones
      */
     public RouteDto findRoute(Zone from, Zone to) {
-        logger.debug("Finding route from {} to {}", from, to);
+        logger.debug("Finding A* route from {} to {}", from, to);
 
         if (from == to) {
             return new RouteDto(
@@ -61,66 +60,59 @@ public class RoutingService {
             );
         }
 
-        // Dijkstra's algorithm
-        Map<Zone, Double> distances = new EnumMap<>(Zone.class);
+        // A* algorithm implementation
+        Map<Zone, Double> gScore = new EnumMap<>(Zone.class); // Cost from start to current
+        Map<Zone, Double> fScore = new EnumMap<>(Zone.class); // Estimated total cost (g + h)
         Map<Zone, Zone> predecessors = new EnumMap<>(Zone.class);
-        PriorityQueue<ZoneDistance> queue = new PriorityQueue<>(
-                Comparator.comparingDouble(ZoneDistance::distance));
+        
+        // Priority Queue ordered by fScore
+        PriorityQueue<Zone> openSet = new PriorityQueue<>(Comparator.comparingDouble(z -> fScore.getOrDefault(z, Double.MAX_VALUE)));
 
         for (Zone zone : Zone.values()) {
-            distances.put(zone, Double.MAX_VALUE);
+            gScore.put(zone, Double.MAX_VALUE);
+            fScore.put(zone, Double.MAX_VALUE);
         }
-        distances.put(from, 0.0);
-        queue.add(new ZoneDistance(from, 0.0));
 
-        Set<Zone> visited = EnumSet.noneOf(Zone.class);
+        gScore.put(from, 0.0);
+        fScore.put(from, calculateHeuristic(from, to));
+        openSet.add(from);
 
-        while (!queue.isEmpty()) {
-            ZoneDistance current = queue.poll();
-            Zone currentZone = current.zone();
+        while (!openSet.isEmpty()) {
+            Zone current = openSet.poll();
 
-            if (visited.contains(currentZone)) {
-                continue;
-            }
-            visited.add(currentZone);
-
-            if (currentZone == to) {
+            if (current == to) {
                 break;
             }
 
-            List<Edge> edges = graph.get(currentZone);
+            List<Edge> edges = graph.get(current);
             if (edges == null) continue;
 
             for (Edge edge : edges) {
-                if (visited.contains(edge.destination())) continue;
+                double tentativeGScore = gScore.get(current) + calculateAdjustedWeight(edge);
 
-                double adjustedWeight = calculateAdjustedWeight(edge);
-                double newDist = distances.get(currentZone) + adjustedWeight;
-
-                if (newDist < distances.get(edge.destination())) {
-                    distances.put(edge.destination(), newDist);
-                    predecessors.put(edge.destination(), currentZone);
-                    queue.add(new ZoneDistance(edge.destination(), newDist));
+                if (tentativeGScore < gScore.get(edge.destination())) {
+                    predecessors.put(edge.destination(), current);
+                    gScore.put(edge.destination(), tentativeGScore);
+                    fScore.put(edge.destination(), tentativeGScore + calculateHeuristic(edge.destination(), to));
+                    
+                    if (!openSet.contains(edge.destination())) {
+                        openSet.add(edge.destination());
+                    }
                 }
             }
         }
 
-        if (distances.get(to) == Double.MAX_VALUE) {
+        if (gScore.get(to) == Double.MAX_VALUE) {
             throw new IllegalArgumentException(
                     "No route found from " + from.getDisplayName() + " to " + to.getDisplayName());
         }
 
-        // Reconstruct path
         List<Zone> path = reconstructPath(predecessors, from, to);
-        double totalWeight = distances.get(to);
-        int estimatedTimeSeconds = (int) Math.ceil(totalWeight / WALKING_SPEED_MPS);
-
-        logger.debug("Route found: {} -> {}, {} steps, ~{}s",
-                from, to, path.size(), estimatedTimeSeconds);
+        double totalWeight = gScore.get(to);
+        int estimatedTimeSeconds = (int) Math.ceil(totalWeight / routingProperties.getWalkingSpeed());
 
         return new RouteDto(
-                from.name(),
-                to.name(),
+                from.name(), to.name(),
                 path.stream().map(Zone::name).toList(),
                 path.stream().map(Zone::getDisplayName).toList(),
                 estimatedTimeSeconds,
@@ -129,41 +121,41 @@ public class RoutingService {
     }
 
     /**
-     * Calculates the crowd-adjusted weight for an edge.
-     *
-     * <p>Density multiplier: LOW=1.0, MEDIUM=1.3, HIGH=1.8, CRITICAL=2.5</p>
+     * Euclidean distance heuristic for A*.
      */
-    double calculateAdjustedWeight(Edge edge) {
-        CrowdData crowdData = crowdService.getCrowdData(edge.destination());
-        double densityMultiplier = getDensityMultiplier(crowdData.getDensityLevel());
-        return edge.weight() * densityMultiplier;
+    private double calculateHeuristic(Zone current, Zone goal) {
+        double dx = current.getX() - goal.getX();
+        double dy = current.getY() - goal.getY();
+        return Math.sqrt(dx * dx + dy * dy);
     }
 
-    /**
-     * Returns the congestion multiplier for a given density level.
-     */
-    static double getDensityMultiplier(DensityLevel level) {
-        return switch (level) {
-            case LOW -> 1.0;
-            case MEDIUM -> 1.3;
-            case HIGH -> 1.8;
-            case CRITICAL -> 2.5;
-        };
+    double calculateAdjustedWeight(Edge edge) {
+        CrowdData crowdData = crowdService.getCrowdData(edge.destination());
+        double multiplier = getDensityMultiplier(crowdData.getDensityLevel());
+        return edge.weight() * multiplier;
+    }
+
+    private double getDensityMultiplier(DensityLevel level) {
+        // Check for real-time overrides from Firestore first
+        if (remoteConfigService.isPresent()) {
+            Optional<Double> override = remoteConfigService.get().getMultiplierOverride(level);
+            if (override.isPresent()) {
+                return override.get();
+            }
+        }
+        
+        // Fallback to configured properties
+        return routingProperties.getMultipliers().getOrDefault(level, 1.0);
     }
 
     private List<Zone> reconstructPath(Map<Zone, Zone> predecessors, Zone from, Zone to) {
         LinkedList<Zone> path = new LinkedList<>();
         Zone current = to;
-
         while (current != null) {
             path.addFirst(current);
             if (current == from) break;
             current = predecessors.get(current);
         }
-
         return Collections.unmodifiableList(path);
-    }
-
-    private record ZoneDistance(Zone zone, double distance) {
     }
 }

@@ -5,23 +5,18 @@ import RoutePlanner from './components/RoutePlanner.jsx';
 import QueueTimes from './components/QueueTimes.jsx';
 import AiAssistant from './components/AiAssistant.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
-import { fetchCrowdDensity, fetchWaitTimes } from './api/stadiumApi.js';
+import { fetchTelemetry } from './api/stadiumApi.js';
 import { useStompData } from './hooks/useStompData.js';
 
 /**
  * Main application component assembling the dashboard.
  */
 export default function App() {
-  const crowdFetcher = useCallback(() => fetchCrowdDensity(), []);
-  const queueFetcher = useCallback(() => fetchWaitTimes(), []);
+  const telemetryFetcher = useCallback(() => fetchTelemetry(), []);
+  const { data: telemetry, loading, error, lastUpdated } = useStompData(telemetryFetcher);
 
-  const crowd = useStompData(crowdFetcher);
-  const queue = useStompData(queueFetcher);
-
-  // Use the most recent update time from either data source
-  const lastUpdated = crowd.lastUpdated && queue.lastUpdated
-    ? new Date(Math.max(crowd.lastUpdated.getTime(), queue.lastUpdated.getTime()))
-    : crowd.lastUpdated || queue.lastUpdated;
+  const crowdData = telemetry?.crowdDensities || null;
+  const queueData = telemetry?.queueWaitTimes || null;
 
   return (
     <>
@@ -31,17 +26,17 @@ export default function App() {
 
         <main id="main-content" className="dashboard-grid" role="main" aria-label="Stadium Dashboard">
           <CrowdHeatmap
-            data={crowd.data}
-            loading={crowd.loading}
-            error={crowd.error}
+            data={crowdData}
+            loading={loading}
+            error={error}
           />
 
           <RoutePlanner />
 
           <QueueTimes
-            data={queue.data}
-            loading={queue.loading}
-            error={queue.error}
+            data={queueData}
+            loading={loading}
+            error={error}
           />
           <AdminPanel />
         </main>
