@@ -15,11 +15,11 @@
 The Smart Stadium System enhances large-scale sporting venue experiences by:
 
 - **Tracking crowd density** across all stadium zones in real-time
-- **Optimizing routes** between zones using congestion-aware pathfinding
+- **Optimizing routes** between zones using A* pathfinding with Euclidean heuristics
 - **Predicting queue wait times** at food courts, restrooms, and gates
-- **Simulating live events** with realistic crowd movement patterns
-- **AI-Powered Stadium Assistant** (Gemini) for natural language venue queries
-- **Administrative Control & Security** via RBAC and simulation triggers
+- **Simulating live events** with realistic crowd movement patterns using event-driven pushed telemetry
+- **AI-Powered Stadium Assistant** (Gemini 2.5 Flash) for natural language venue queries
+- **Administrative Control & Security** via profile-based RBAC and hardened CSP
 
 Built with a clean layered architecture — Spring Boot backend, React frontend, and Google Cloud integration (Firestore, Pub/Sub, Cloud Run).
 
@@ -101,7 +101,7 @@ npm run dev
 ### Docker Compose
 
 ```bash
-docker-compose up --build
+docker compose up --build
 # Frontend: http://localhost:3000
 # Backend API: http://localhost:8080
 ```
@@ -112,13 +112,9 @@ docker-compose up --build
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/api/crowd-density` | GET | All zone density data |
-| `/api/crowd-density/{zone}` | GET | Specific zone density |
-| `/api/route?from=A&to=B` | GET | Optimal route between zones |
-| `/api/wait-time` | GET | All zone wait times |
-| `/api/wait-time?zone=X` | GET | Specific zone wait time |
-| `/api/ai/chat` | POST | Chat with AI assistant (Natural language) |
-| `/api/admin/simulation/trigger` | POST | Trigger manual simulation tick (Admin required) |
+| `/api/telemetry` | GET | Unified crowd and queue wait times in one payload |
+| `/api/ai/chat` | POST | Chat with Gemini 2.5 Flash assistant (Natural language) |
+| `/api/admin/simulation/trigger` | POST | Trigger manual simulation tick (Anonymously allowed for demo) |
 | `/actuator/health` | GET | Application health check |
 
 See [API.md](docs/API.md) for full request/response examples.

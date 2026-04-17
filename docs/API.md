@@ -82,11 +82,47 @@ Returns crowd density data for a specific zone.
 
 ---
 
+## Unified Telemetry
+
+### `GET /api/telemetry`
+
+Returns the complete stadium state (crowd densities and queue wait times) in a single optimized payload. **This is the preferred endpoint for initial dashboard loading.**
+
+**Response:** `200 OK`
+
+```json
+{
+  "crowdDensities": [
+    {
+      "zone": "GATE_A",
+      "displayName": "Gate A",
+      "currentCount": 245,
+      "capacity": 500,
+      "occupancyRate": 0.49,
+      "densityLevel": "MEDIUM",
+      "timestamp": "2026-04-16T10:30:00Z"
+    }
+  ],
+  "queueWaitTimes": [
+    {
+      "zone": "FOOD_COURT_EAST",
+      "displayName": "Food Court East",
+      "queueLength": 18,
+      "estimatedWaitSeconds": 810,
+      "densityLevel": "MEDIUM",
+      "timestamp": "2026-04-16T10:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
 ## Route Calculation
 
 ### `GET /api/route`
 
-Finds the optimal route between two zones using Dijkstra's algorithm with crowd-density-adjusted weights.
+Finds the optimal route between two zones using the **A* (A-Star)** algorithm with Euclidean distance heuristics and crowd-density-adjusted weights.
 
 **Query Parameters:**
 
