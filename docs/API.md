@@ -4,6 +4,43 @@ Complete endpoint documentation for the Smart Stadium System backend API.
 
 **Base URL:** `http://localhost:8080` (local) or your Cloud Run service URL.
 
+## Standardized Error Responses (RFC 7807)
+
+Following the Zero-VPC security hardening, all API errors (e.g., 400 Bad Request, 404 Not Found, 429 Too Many Requests) are returned as standardized `ProblemDetail` JSON objects.
+
+**Example `429 Too Many Requests` (Bucket4j Rate Limit):**
+```json
+{
+  "type": "about:blank",
+  "title": "Too Many Requests",
+  "status": 429,
+  "detail": "API rate limit exceeded. Please try again later.",
+  "instance": "/api/route"
+}
+```
+
+---
+
+## Stadium Zones
+
+### `GET /api/zones`
+
+Returns a dynamic list of all valid stadium zones for frontend UI consumption, decoupling the React client from backend domain logic.
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "id": "GATE_A",
+    "name": "Gate A"
+  },
+  {
+    "id": "FOOD_COURT_EAST",
+    "name": "Food Court East"
+  }
+]
+```
+
 ---
 
 ## Crowd Density

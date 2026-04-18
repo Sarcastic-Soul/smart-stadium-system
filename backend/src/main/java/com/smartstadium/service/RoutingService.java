@@ -6,11 +6,10 @@ import com.smartstadium.model.CrowdData;
 import com.smartstadium.model.DensityLevel;
 import com.smartstadium.model.Zone;
 import com.smartstadium.service.StadiumGraphBuilder.Edge;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
-import java.util.*;
 
 /**
  * Service for calculating optimal routes between stadium zones using A* algorithm.
@@ -22,22 +21,28 @@ import java.util.*;
 @Service
 public class RoutingService {
 
-    private static final Logger logger = LoggerFactory.getLogger(RoutingService.class);
+    private static final Logger logger = LoggerFactory.getLogger(
+        RoutingService.class
+    );
 
     private final Map<Zone, List<Edge>> graph;
     private final CrowdService crowdService;
     private final RoutingProperties routingProperties;
     private final Optional<RemoteConfigService> remoteConfigService;
 
-    public RoutingService(CrowdService crowdService, 
-                          RoutingProperties routingProperties,
-                          Optional<RemoteConfigService> remoteConfigService) {
+    public RoutingService(
+        CrowdService crowdService,
+        RoutingProperties routingProperties,
+        Optional<RemoteConfigService> remoteConfigService
+    ) {
         this.crowdService = crowdService;
         this.routingProperties = routingProperties;
         this.remoteConfigService = remoteConfigService;
         this.graph = StadiumGraphBuilder.buildGraph();
-        logger.info("A* Routing service initialized. Base walking speed: {} m/s", 
-                routingProperties.getWalkingSpeed());
+        logger.info(
+            "A* Routing service initialized. Base walking speed: {} m/s",
+            routingProperties.getWalkingSpeed()
+        );
     }
 
     /**
@@ -53,10 +58,12 @@ public class RoutingService {
 
         if (from == to) {
             return new RouteDto(
-                    from.name(), to.name(),
-                    List.of(from.name()),
-                    List.of(from.getDisplayName()),
-                    0, 0.0
+                from.name(),
+                to.name(),
+                List.of(from.name()),
+                List.of(from.getDisplayName()),
+                0,
+                0.0
             );
         }
 
@@ -64,9 +71,9 @@ public class RoutingService {
         Map<Zone, Double> gScore = new EnumMap<>(Zone.class); // Cost from start to current
         Map<Zone, Double> fScore = new EnumMap<>(Zone.class); // Estimated total cost (g + h)
         Map<Zone, Zone> predecessors = new EnumMap<>(Zone.class);
-        
+
         // Priority Queue ordered by fScore
-        PriorityQueue<Zone> openSet = new PriorityQueue<>(Comparator.comparingDouble(z -> fScore.getOrDefault(z, Double.MAX_VALUE)));
+        PriorityQueue<State> openSet = new PriorityQueue<>();
 
         for (Zone zone : Zone.values()) {
             gScore.put(zone, Double.MAX_VALUE);
@@ -75,49 +82,93 @@ public class RoutingService {
 
         gScore.put(from, 0.0);
         fScore.put(from, calculateHeuristic(from, to));
-        openSet.add(from);
+        openSet.add(new State(from, fScore.get(from)));
 
         while (!openSet.isEmpty()) {
-            Zone current = openSet.poll();
+            State currentState = openSet.poll();
+            Zone current = currentState.zone();
+
+            // Lazy deletion: if we found a shorter path to this zone before popping this state, ignore
+            if (currentState.fScore() > fScore.get(current)) {
+                continue;
+            }
 
             if (current == to) {
                 break;
             }
 
-            List<Edge> edges = graph.get(current);
-            if (edges == null) continue;
-
-            for (Edge edge : edges) {
-                double tentativeGScore = gScore.get(current) + calculateAdjustedWeight(edge);
-
-                if (tentativeGScore < gScore.get(edge.destination())) {
-                    predecessors.put(edge.destination(), current);
-                    gScore.put(edge.destination(), tentativeGScore);
-                    fScore.put(edge.destination(), tentativeGScore + calculateHeuristic(edge.destination(), to));
-                    
-                    if (!openSet.contains(edge.destination())) {
-                        openSet.add(edge.destination());
-                    }
-                }
-            }
+            evaluateNeighbors(
+                current,
+                to,
+                gScore,
+                fScore,
+                predecessors,
+                openSet
+            );
         }
 
         if (gScore.get(to) == Double.MAX_VALUE) {
             throw new IllegalArgumentException(
-                    "No route found from " + from.getDisplayName() + " to " + to.getDisplayName());
+                "No route found from " +
+                    from.getDisplayName() +
+                    " to " +
+                    to.getDisplayName()
+            );
         }
 
         List<Zone> path = reconstructPath(predecessors, from, to);
         double totalWeight = gScore.get(to);
-        int estimatedTimeSeconds = (int) Math.ceil(totalWeight / routingProperties.getWalkingSpeed());
+        int estimatedTimeSeconds = (int) Math.ceil(
+            totalWeight / routingProperties.getWalkingSpeed()
+        );
 
         return new RouteDto(
-                from.name(), to.name(),
-                path.stream().map(Zone::name).toList(),
-                path.stream().map(Zone::getDisplayName).toList(),
-                estimatedTimeSeconds,
-                Math.round(totalWeight * 100.0) / 100.0
+            from.name(),
+            to.name(),
+            path.stream().map(Zone::name).toList(),
+            path.stream().map(Zone::getDisplayName).toList(),
+            estimatedTimeSeconds,
+            Math.round(totalWeight * 100.0) / 100.0
         );
+    }
+
+    private record State(
+        Zone zone,
+        double fScore
+    ) implements Comparable<State> {
+        @Override
+        public int compareTo(State o) {
+            return Double.compare(this.fScore, o.fScore);
+        }
+    }
+
+    private void evaluateNeighbors(
+        Zone current,
+        Zone to,
+        Map<Zone, Double> gScore,
+        Map<Zone, Double> fScore,
+        Map<Zone, Zone> predecessors,
+        PriorityQueue<State> openSet
+    ) {
+        List<Edge> edges = graph.get(current);
+        if (edges == null) return;
+
+        for (Edge edge : edges) {
+            double tentativeGScore =
+                gScore.get(current) + calculateAdjustedWeight(edge);
+
+            if (tentativeGScore < gScore.get(edge.destination())) {
+                predecessors.put(edge.destination(), current);
+                gScore.put(edge.destination(), tentativeGScore);
+                double newFScore =
+                    tentativeGScore +
+                    calculateHeuristic(edge.destination(), to);
+                fScore.put(edge.destination(), newFScore);
+
+                // Add state without checking contains (lazy deletion handles duplicates)
+                openSet.add(new State(edge.destination(), newFScore));
+            }
+        }
     }
 
     /**
@@ -138,17 +189,23 @@ public class RoutingService {
     private double getDensityMultiplier(DensityLevel level) {
         // Check for real-time overrides from Firestore first
         if (remoteConfigService.isPresent()) {
-            Optional<Double> override = remoteConfigService.get().getMultiplierOverride(level);
+            Optional<Double> override = remoteConfigService
+                .get()
+                .getMultiplierOverride(level);
             if (override.isPresent()) {
                 return override.get();
             }
         }
-        
+
         // Fallback to configured properties
         return routingProperties.getMultipliers().getOrDefault(level, 1.0);
     }
 
-    private List<Zone> reconstructPath(Map<Zone, Zone> predecessors, Zone from, Zone to) {
+    private List<Zone> reconstructPath(
+        Map<Zone, Zone> predecessors,
+        Zone from,
+        Zone to
+    ) {
         LinkedList<Zone> path = new LinkedList<>();
         Zone current = to;
         while (current != null) {

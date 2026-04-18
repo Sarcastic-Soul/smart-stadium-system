@@ -1,12 +1,16 @@
 package com.smartstadium.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.net.URI;
 import java.time.Duration;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -34,6 +38,7 @@ public class RateLimitConfig implements WebMvcConfigurer {
     private static class RateLimitInterceptor implements HandlerInterceptor {
 
         private final Bucket bucket;
+        private final ObjectMapper objectMapper = new ObjectMapper();
 
         public RateLimitInterceptor(Bucket bucket) {
             this.bucket = bucket;
@@ -51,16 +56,15 @@ public class RateLimitConfig implements WebMvcConfigurer {
                 response.setStatus(429);
                 response.setContentType("application/problem+json");
 
-                String jsonResponse = """
-                    {
-                        "type": "about:blank",
-                        "title": "Too Many Requests",
-                        "status": 429,
-                        "detail": "API rate limit exceeded. Please try again later.",
-                        "instance": "%s"
-                    }
-                    """.formatted(request.getRequestURI());
+                ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "API rate limit exceeded. Please try again later."
+                );
+                problemDetail.setType(URI.create("about:blank"));
+                problemDetail.setTitle("Too Many Requests");
+                problemDetail.setInstance(URI.create(request.getRequestURI()));
 
+                String jsonResponse = objectMapper.writeValueAsString(problemDetail);
                 response.getWriter().write(jsonResponse);
                 return false;
             }

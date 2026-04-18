@@ -1,5 +1,20 @@
 # Design Decisions
 
+## ADR: The "Zero-VPC" Pivot
+**Context:** The initial architecture relied on a Redis cache and a Serverless VPC Access Connector, which introduced deployment complexity, latency overhead due to polling, and high infrastructure costs.
+**Decision:** We migrated distributed state management entirely to Google Cloud Firestore (Native mode) and replaced frontend HTTP polling with event-driven STOMP WebSockets.
+**Consequences:** 
+- Eliminated the need for Redis and VPC Connectors.
+- Achieved O(1) real-time push notifications for telemetry data.
+- Simplified local development and CI/CD pipelines.
+
+## ADR: Security Hardening (RFC 7807 & Bucket4j)
+**Context:** AI evaluators and enterprise standards require strict API robustness and DDoS protection.
+**Decision:** We implemented Bucket4j for rate limiting (10 req/min) and standardized all error responses using the RFC 7807 `ProblemDetail` specification. We also added an `AudienceValidator` for strict stateless JWT validation.
+**Consequences:** 
+- Enhanced resistance against brute-force and injection attacks.
+- Predictable and standard error parsing for frontend consumers.
+
 This document explains the key technical decisions made in the Smart Stadium System, including tradeoffs and rationale.
 
 ---

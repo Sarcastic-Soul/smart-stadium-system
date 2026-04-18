@@ -16,10 +16,13 @@ import org.springframework.context.annotation.Profile;
 @Profile("cloud")
 public class PubSubConfig {
 
-    private static final Logger logger = LoggerFactory.getLogger(PubSubConfig.class);
+    private static final Logger logger = LoggerFactory.getLogger(
+        PubSubConfig.class
+    );
 
     public static final String CROWD_UPDATES_TOPIC = "crowd-updates";
     public static final String CROWD_UPDATES_SUBSCRIPTION = "crowd-updates-sub";
+    public static final String CROWD_UPDATES_DLQ = "crowd-updates-dlq";
 
     @Value("${spring.cloud.gcp.project-id:}")
     private String projectId;
@@ -34,5 +37,9 @@ public class PubSubConfig {
 
     public String getCrowdUpdatesSubscription() {
         return CROWD_UPDATES_SUBSCRIPTION;
+    }
+
+    public String getCrowdUpdatesDlq() {
+        return CROWD_UPDATES_DLQ;
     }
 }

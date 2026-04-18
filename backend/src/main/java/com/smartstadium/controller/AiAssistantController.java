@@ -19,6 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -63,10 +65,16 @@ public class AiAssistantController {
 
         String responseMessage;
 
-        if (useMockResponse) {
-            responseMessage = generateMockResponse(message);
-        } else {
-            responseMessage = callVertexAI(message);
+        try {
+            if (useMockResponse) {
+                responseMessage = generateMockResponse(message);
+            } else {
+                responseMessage = callVertexAI(message);
+            }
+        } catch (Exception e) {
+            logger.error("Error calling Vertex AI: ", e);
+            responseMessage =
+                "I'm having trouble reaching my AI brain right now, but according to my backup sensors, you should check the North Concourse for lower crowds!";
         }
 
         return ResponseEntity.ok(
@@ -74,7 +82,8 @@ public class AiAssistantController {
         );
     }
 
-    private String callVertexAI(String userMessage) {
+    @Retryable(maxAttempts = 3, backoff = @Backoff(delay = 1000))
+    public String callVertexAI(String userMessage) throws Exception {
         try (VertexAI vertexAI = new VertexAI(projectId, location)) {
             GenerativeModel model = new GenerativeModel(
                 "gemini-2.5-flash",
@@ -112,9 +121,6 @@ public class AiAssistantController {
 
             GenerateContentResponse response = model.generateContent(prompt);
             return ResponseHandler.getText(response);
-        } catch (Exception e) {
-            logger.error("Error calling Vertex AI: ", e);
-            return "I'm having trouble reaching my AI brain right now, but according to my backup sensors, you should check the North Concourse for lower crowds!";
         }
     }
 
