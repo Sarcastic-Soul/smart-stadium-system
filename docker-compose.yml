@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
     backend:
         build: ./backend
@@ -11,11 +9,6 @@ services:
             - GCP_PROJECT_ID=promptwars-493516
             - FRONTEND_URL=http://localhost:3000
             - PUBSUB_ENABLED=false
-            # The "Zero-VPC" architecture no longer requires Redis.
-            # Local state is kept in-memory by default.
-            # For cloud deployment (Firestore state), set:
-            # - SPRING_PROFILES_ACTIVE=cloud
-            # - GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
         healthcheck:
             test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
             interval: 30s
