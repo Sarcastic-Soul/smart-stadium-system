@@ -86,7 +86,7 @@ export default function QueueTimes({ data, loading, error }) {
         <h2 className="card-title"><span className="icon" aria-hidden="true">⏱️</span> Queue Times</h2>
         <span className="last-updated">{sorted.length} queues</span>
       </div>
-      <div className="queue-list" role="list" aria-label="Queue wait times by zone">
+      <div className="queue-list" role="list" aria-live="polite" aria-label="Queue wait times by zone">
         {sorted.map((item) => {
           const urgency = getUrgency(item.estimatedWaitSeconds);
           return (

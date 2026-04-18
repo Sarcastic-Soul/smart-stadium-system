@@ -1,39 +1,33 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  backend:
-    build: ./backend
-    container_name: stadium-backend
-    ports:
-      - "8080:8080"
-    environment:
-      - PORT=8080
-      - GCP_PROJECT_ID=promptwars-493516
-      - FRONTEND_URL=http://localhost:3000
-      - PUBSUB_ENABLED=false
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-      # For cloud deployment, set:
-      # - SPRING_PROFILES_ACTIVE=cloud
-      # - GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    backend:
+        build: ./backend
+        container_name: stadium-backend
+        ports:
+            - "8080:8080"
+        environment:
+            - PORT=8080
+            - GCP_PROJECT_ID=promptwars-493516
+            - FRONTEND_URL=http://localhost:3000
+            - PUBSUB_ENABLED=false
+            # The "Zero-VPC" architecture no longer requires Redis.
+            # Local state is kept in-memory by default.
+            # For cloud deployment (Firestore state), set:
+            # - SPRING_PROFILES_ACTIVE=cloud
+            # - GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
 
-  redis:
-    image: redis:7-alpine
-    container_name: stadium-redis
-    ports:
-      - "6379:6379"
-
-  frontend:
-    build: ./frontend
-    container_name: stadium-frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      backend:
-        condition: service_healthy
+    frontend:
+        build: ./frontend
+        container_name: stadium-frontend
+        ports:
+            - "3000:80"
+        depends_on:
+            backend:
+                condition: service_healthy

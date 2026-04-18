@@ -1,0 +1,105 @@
+--- backend/src/main/java/com/smartstadium/controller/GlobalExceptionHandler.java
++++ backend/src/main/java/com/smartstadium/controller/GlobalExceptionHandler.java
+@@ -4,6 +4,7 @@
+ import jakarta.servlet.http.HttpServletRequest;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
++import org.springframework.http.ProblemDetail;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
+ import org.springframework.web.bind.MissingServletRequestParameterException;
+@@ -25,58 +26,62 @@
+      * Handles invalid input parameters (e.g., invalid zone names).
+      */
+     @ExceptionHandler(IllegalArgumentException.class)
+-    public ResponseEntity<ErrorResponse> handleIllegalArgument(
++    public ProblemDetail handleIllegalArgument(
+             IllegalArgumentException ex, HttpServletRequest request) {
+         logger.warn("Bad request to {}: {}", request.getRequestURI(), ex.getMessage());
+-        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
++        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
++        pd.setInstance(java.net.URI.create(request.getRequestURI()));
++        return pd;
+     }
+ 
+     /**
+      * Handles missing required request parameters.
+      */
+     @ExceptionHandler(MissingServletRequestParameterException.class)
+-    public ResponseEntity<ErrorResponse> handleMissingParam(
++    public ProblemDetail handleMissingParam(
+             MissingServletRequestParameterException ex, HttpServletRequest request) {
+         String message = "Missing required parameter: " + ex.getParameterName();
+         logger.warn("Missing parameter in request to {}: {}", request.getRequestURI(), message);
+-        return buildResponse(HttpStatus.BAD_REQUEST, message, request);
++        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, message);
++        pd.setInstance(java.net.URI.create(request.getRequestURI()));
++        return pd;
+     }
+ 
+     /**
+      * Handles type mismatch in request parameters.
+      */
+     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+-    public ResponseEntity<ErrorResponse> handleTypeMismatch(
++    public ProblemDetail handleTypeMismatch(
+             MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+         String message = "Invalid value for parameter '" + ex.getName() + "': " + ex.getValue();
+         logger.warn("Type mismatch in request to {}: {}", request.getRequestURI(), message);
+-        return buildResponse(HttpStatus.BAD_REQUEST, message, request);
++        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, message);
++        pd.setInstance(java.net.URI.create(request.getRequestURI()));
++        return pd;
++    }
++
++    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
++    public ProblemDetail handleValidationExceptions(org.springframework.web.bind.MethodArgumentNotValidException ex, HttpServletRequest request) {
++        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Validation failed");
++        pd.setInstance(java.net.URI.create(request.getRequestURI()));
++        return pd;
+     }
+ 
+     /**
+      * Handles 404 Not Found for unmapped endpoints.
+      */
+     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+-    public ResponseEntity<ErrorResponse> handleNotFound(
++    public ProblemDetail handleNotFound(
+             org.springframework.web.servlet.resource.NoResourceFoundException ex, HttpServletRequest request) {
+         logger.warn("Resource not found at {}: {}", request.getRequestURI(), ex.getMessage());
+-        return buildResponse(HttpStatus.NOT_FOUND, "Resource not found", request);
++        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Resource not found");
++        pd.setInstance(java.net.URI.create(request.getRequestURI()));
++        return pd;
+     }
+ 
+     /**
+      * Catches all unhandled exceptions to prevent stack trace leakage.
+      */
+     @ExceptionHandler(Exception.class)
+-    public ResponseEntity<ErrorResponse> handleGenericException(
++    public ProblemDetail handleGenericException(
+             Exception ex, HttpServletRequest request) {
+         logger.error("Unhandled exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+-        return buildResponse(
+-                HttpStatus.INTERNAL_SERVER_ERROR,
+-                "An internal error occurred. Please try again later.",
+-                request
+-        );
+-    }
+-
+-    private ResponseEntity<ErrorResponse> buildResponse(
+-            HttpStatus status, String message, HttpServletRequest request) {
+-        ErrorResponse error = new ErrorResponse(
+-                status.value(),
+-                status.getReasonPhrase(),
+-                message,
+-                request.getRequestURI(),
+-                Instant.now()
+-        );
+-        return ResponseEntity.status(status).body(error);
++        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An internal error occurred. Please try again later.");
++        pd.setInstance(java.net.URI.create(request.getRequestURI()));
++        return pd;
+     }
+ }
